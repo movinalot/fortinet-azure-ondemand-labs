@@ -24,4 +24,4 @@ jobs:
         url: https://f1dcf3d2-d4e7-45f4-ac93-5394986d1fb4.webhook.eus.azure-automation.net/webhooks?token=alY0%2bX8%2fv%2fYrFP65PU0psQrwPoYWsTKIBdQgx9bF5v4%3d
         method: 'POST'
         customHeaders: '{"Content-Type": "application/json"}'
-        data: '{"userop": "Delete", "username": "fortilab24","odlconfig": "sdwan-lab"}'
+        data: '{"userop": "Delete", "username": "fortilab21","odlconfig": "sdwan-lab"}'
