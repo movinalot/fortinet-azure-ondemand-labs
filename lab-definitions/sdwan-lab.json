@@ -1,0 +1,33 @@
+{
+  "userIdNumberRange"  : "21..23",
+  "userNamePrefix"     : "fortilab",
+  "userTenantDomain"   : "fortinetcloud.onmicrosoft.com",
+  "userPassword"       : "123Password#@!",
+  "userResourceGroups": [
+    {
+      "suffix": "sdwan-workshop",
+      "location": "eastus",
+      "storage": true,
+      "sharename": "cloudshellshare",
+      "bastion": true,
+      "utilityVnetName": "vnet-utility",
+      "utilityVnetCIDR": "192.168.100.0/24",
+      "utilitySubnetName": "utility",
+      "utilitySubnetPrefix": "192.168.100.64/26",
+      "bastionSubnetName": "AzureBastionSubnet",
+      "bastionSubnetPrefix": "192.168.100.0/26"
+    },
+    {
+      "suffix": "utility",
+      "location": "westus",
+      "storage": false,
+      "bastion": false
+    },
+    {
+      "suffix": "spoke-vms",
+      "location": "centralus",
+      "storage": false,
+      "bastion": false
+    }
+  ]
+}
