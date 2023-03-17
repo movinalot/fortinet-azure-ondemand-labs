@@ -1,0 +1,28 @@
+{
+  "fortiLabName"      : "FORTILAB",
+  "userIdNumberRange" : "21:50",
+  "userNamePrefix"    : "fortilab",
+  "userTenantDomain"  : "tenant-01",
+  "labDuration"       : "6",
+  "userResourceGroups": [
+    {
+      "suffix": "workshop-fortilab",
+      "location": "eastus",
+      "storage": true,
+      "sharename": "cloudshellshare",
+      "bastion": true,
+      "utilityVnetName": "vnet-utility",
+      "utilityVnetCIDR": "192.168.100.0/24",
+      "utilitySubnetName": "utility",
+      "utilitySubnetPrefix": "192.168.100.64/26",
+      "bastionSubnetName": "AzureBastionSubnet",
+      "bastionSubnetPrefix": "192.168.100.0/26"
+    },
+    {
+      "suffix": "utility-fortilab",
+      "location": "westus",
+      "storage": false,
+      "bastion": false
+    }
+  ]
+}

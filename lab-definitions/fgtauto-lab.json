@@ -1,0 +1,23 @@
+{
+  "fortiLabName": "FGTAUTO",
+  "labDuration": "4",
+  "userIdNumberRange": "10:40",
+  "userNamePrefix": "fgta",
+  "userTenantDomain": "tenant-01",
+  "userResourceGroups": [
+    {
+      "suffix": "fgt-as-tec-recipe",
+      "location": "eastus",
+      "storage": true,
+      "sharename": "cloudshellshare",
+      "bastion": false
+    },
+    {
+      "suffix": "automation-as-tec-recipe",
+      "location": "eastus",
+      "storage": false,
+      "sharename": "",
+      "bastion": false
+    }
+  ]
+}
