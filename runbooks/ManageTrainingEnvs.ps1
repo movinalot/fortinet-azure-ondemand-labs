@@ -4,7 +4,7 @@
 
     .NOTES
         AUTHOR: jmcdonough@fortinet.com
-        LASTEDIT: Jan 26, 2023
+        LASTEDIT: Mar 30, 2023
 #>
 
 ### Main ###
@@ -37,17 +37,27 @@ foreach ($resourceGroup in $resourceGroups) {
 			Write-Output "Resource Group: $($resourceGroup.ResourceGroupName)"
 			if ($totalDays -gt $resourceGroup.Tags["Duration"]) {
 				Write-Output "Reservation time exceeded  - Running time: $totalDaysString - Expected duration: $($resourceGroup.Tags["Duration"])"
+                Write-Output "UserPrincipalName: $($resourceGroup.Tags["UserPrincipalName"])"
+				Write-Output "Email: $($resourceGroup.Tags["Email"])"
+				Write-Output "FortiLab: $($resourceGroup.Tags["FortiLab"])"
 				$removeResourceGroup = Remove-AzResourceGroup -Id $resourceGroup.ResourceId -Force
 
 				if ($removeResourceGroup) {
 					Write-OutPut "Removed Resource Group: $($resourceGroup.ResourceGroupName)"
 				}
+
+                # Remove User Account
+                $userAccount = Get-AzADUser -UserPrincipalName $($resourceGroup.Tags["UserPrincipalName"])
+                if ($userAccount) {
+                    Remove-AzADUser	 -UserPrincipalName $($resourceGroup.Tags["UserPrincipalName"])
+                    Write-OutPut "User ID deleted: $($resourceGroup.Tags["UserPrincipalName"])"
+                }
+
 			} else {
 				Write-Output "Reservation time remaining - Running time: $totalDaysString - Expected duration: $($resourceGroup.Tags["Duration"])"
 				Write-Output "UserPrincipalName: $($resourceGroup.Tags["UserPrincipalName"])"
 				Write-Output "Email: $($resourceGroup.Tags["Email"])"
 				Write-Output "FortiLab: $($resourceGroup.Tags["FortiLab"])"
-				./ManageTrainingUser.ps1 -UserOp List -OdlConfigName sdwan-lab
 			}
 		}
 }

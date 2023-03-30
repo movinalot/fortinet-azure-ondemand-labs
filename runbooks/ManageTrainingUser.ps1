@@ -135,9 +135,9 @@ function Send-Email {
 
 	$credential = new-object -typename System.Management.Automation.PSCredential -argumentlist "fortinetsecdevops", $(convertto-securestring -Force -AsPlainText $mailApiKey)
 
-	$emailSubject = 'Fortinet Azure TEC Recipe Information'
+	$emailSubject = 'Fortinet Azure TEC Workshop Information'
 	$emailBody = (
-		"`nTEC Recipe: $labName has completed provisioning." +
+		"`nTEC Workshop: $labName has completed provisioning." +
 		"`nDuration: $labDuration days." +
 		"`n`nAzure Access Credentials" +
 		"`nUserName: $userNameforEmail`nPassword: $userPswdforEmail`nPortal: https://portal.azure.com" +
