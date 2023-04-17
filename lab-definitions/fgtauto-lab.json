@@ -1,7 +1,7 @@
 {
   "fortiLabName": "FGTAUTO",
   "labDuration": "4",
-  "userIdNumberRange": "10:40",
+  "userIdNumberRange": "11:40",
   "userNamePrefix": "fct",
   "userTenantDomain": "tenant-01",
   "userResourceGroups": [
