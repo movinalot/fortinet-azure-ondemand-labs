@@ -1,6 +1,6 @@
 {
   "fortiLabName": "FWEBZTNA",
-  "labDuration": "10",
+  "labDuration": "4",
   "userIdNumberRange": "11:40",
   "userNamePrefix": "fweb",
   "userTenantDomain": "tenant-01",
