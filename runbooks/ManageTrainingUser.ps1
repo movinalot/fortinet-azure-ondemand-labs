@@ -4,7 +4,7 @@
 
     .NOTES
         AUTHOR: jmcdonough@fortinet.com
-        LASTEDIT: Mar 06, 2023
+        LASTEDIT: Oct 11, 2023
 #>
 
 # Can be run via WebHook or from Cmd line.
@@ -40,6 +40,8 @@ if ($WebhookData) {
 		$UserName = $jsonBody.username
 		$OdlConfigName = $jsonBody.odlconfigname
 		$UserEmail = $jsonBody.email
+        $SmartTicket = $jsonBody.smartTicket
+        $Customer = $jsonBody.customer
 	}
 	else {
 
@@ -55,11 +57,17 @@ if ($WebhookData) {
 			if ($reqBodyItem.StartsWith("odlconfigname")) {
 				$OdlConfigName = $reqBodyItem.Split("=")[1]
 			}
+			if ($reqBodyItem.StartsWith("smartticket")) {
+				$SmartTicket = $reqBodyItem.Split("=")[1]
+			}
+			if ($reqBodyItem.StartsWith("customer")) {
+				$Customer = $reqBodyItem.Split("=")[1]
+			}
 		}
 		$UserName = ""
 	}
 
-	Write-Output $UserOp, $UserEmail, $OdlConfigName, $UserName
+	Write-Output $UserOp, $UserEmail, $OdlConfigName, $UserName, $SmartTicket, $Customer
 }
 
 $VaultName = "internal-training-vault"
