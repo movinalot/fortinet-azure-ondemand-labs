@@ -4,11 +4,12 @@
 
     .NOTES
         AUTHOR: jmcdonough@fortinet.com
-        LASTEDIT: Oct 11, 2023
+        LASTEDIT: Feb 07, 2024
 #>
 
 # Can be run via WebHook or from Cmd line.
 param(
+	[CmdletBinding()]
 	[Parameter(Mandatory = $false)]
 	[ValidateSet("Create", "Delete", "List", "Email")]
 	[string] $UserOp,
@@ -25,52 +26,6 @@ param(
 	[Parameter (Mandatory = $false)]
 	[object] $WebhookData
 )
-
-# If there is WebHook data then extract and use for script operations.
-if ($WebhookData) {
-
-	write-output "Header"
-	$WebhookData.RequestHeader
-	write-output "Body"
-	$WebhookData.RequestBody
-
-	if ($WebhookData.RequestBody.StartsWith("{")) {
-		$jsonBody = ConvertFrom-Json -InputObject $WebhookData.RequestBody
-		$UserOp = $jsonBody.userop
-		$UserName = $jsonBody.username
-		$OdlConfigName = $jsonBody.odlconfigname
-		$UserEmail = $jsonBody.email
-        $SmartTicket = $jsonBody.smartTicket
-        $Customer = $jsonBody.customer
-	}
-	else {
-
-		$reqBodyArray = @($WebhookData.RequestBody.Split("&"))
-		foreach ($reqBodyItem in $reqBodyArray) {
-			if ($reqBodyItem.StartsWith("userop")) {
-				$UserOp = $reqBodyItem.Split("=")[1]
-			}
-			if ($reqBodyItem.StartsWith("useremail")) {
-				$tmpUserEmail = $reqBodyItem.Split("=")[1]
-				$UserEmail = $tmpUserEmail.Replace("%40", "@")
-			}
-			if ($reqBodyItem.StartsWith("odlconfigname")) {
-				$OdlConfigName = $reqBodyItem.Split("=")[1]
-			}
-			if ($reqBodyItem.StartsWith("smartticket")) {
-				$SmartTicket = $reqBodyItem.Split("=")[1]
-			}
-			if ($reqBodyItem.StartsWith("customer")) {
-				$Customer = $reqBodyItem.Split("=")[1]
-			}
-		}
-		$UserName = ""
-	}
-
-	Write-Output $UserOp, $UserEmail, $OdlConfigName, $UserName, $SmartTicket, $Customer
-}
-
-$VaultName = "internal-training-vault"
 
 # Gernerate a random password for Azure AD accounts
 function Get-RandomPassword {
@@ -137,7 +92,7 @@ function Send-Email {
 	)
 
 	$mailApiKey = Get-AzKeyVaultSecret `
-		-VaultName $VaultName `
+		-VaultName $vaultName `
 		-Name "mail-api-key-01" `
 		-AsPlainText -DefaultProfile $AzureContext
 
@@ -223,12 +178,106 @@ function New-ResourceGroupUserRoleAssignments {
 	)
 
 	$userResourceGroupRoleAssignment = Get-AzRoleAssignment -ResourceGroupName $inputResourceGroupName -ObjectId $inputUserId -WarningAction SilentlyContinue
+}
 
-	
+function Update-StorageTable{
+  param(
+      [Parameter(Mandatory=$true)]
+      [String] $inputResourceGroupName,
+      [Parameter(Mandatory=$true)]
+      [String] $inputStorageAccountName,
+      [Parameter(Mandatory=$true)]
+      [String] $inputLabName,
+      [Parameter(Mandatory=$true)]
+      [array] $inputUserEmail,
+      [Parameter(Mandatory=$true)]
+      [array] $inputLabUserId,
+      [Parameter(Mandatory=$true)]
+      [array] $inputCustomer,
+      [Parameter(Mandatory=$true)]
+      [array] $inputSmartTicket
+  )
 
+  $storageAccount = Get-AzStorageAccount -ResourceGroupName $inputResourceGroupName -Name $inputStorageAccountName
+  $storageTable = Get-AzStorageTable –Name "workshops" –Context $storageAccount.Context
+
+  $workshopRecords = Get-AzTableRow -table $storageTable.CloudTable | Where-Object {$_.RowKey.StartsWith($inputLabName)}
+
+  if ($workshopRecords.Count -eq 0) {
+      Write-Output "No $($inputLabName) records found"
+      $nextinstance = 1
+  }
+  else {
+      $instances = @()
+  
+      foreach ($workshopRecord in $workshopRecords) {
+          $instance = [int]$workshopRecord.RowKey.Split("-")[1]
+          $instances += $instance 
+      }
+      $sortedInstances = $instances | Sort-Object
+      $nextInstance = $sortedInstances[$sortedInstances.Count-1] + 1
+  }
+  $nextInstance
+
+  Add-AzTableRow -table $storageTable.CloudTable -partitionKey "workshops" -rowKey ($inputLabName+"-"+$nextInstance) `
+	  -property @{"username"="$inputUserEmail";"labUserId"="$inputLabUserId";"Customer"="$inputCustomer";"SmartTicket"="$inputSmartTicket"}
 }
 
 ### Main ###
+
+Import-Module AzTable
+
+# If there is WebHook data then extract and use for script operations.
+if ($WebhookData) {
+
+	write-output "Header"
+	$WebhookData.RequestHeader
+	write-output "Body"
+	$WebhookData.RequestBody
+
+	if ($WebhookData.RequestBody.StartsWith("{")) {
+		$jsonBody = ConvertFrom-Json -InputObject $WebhookData.RequestBody
+		$UserOp = $jsonBody.userop
+		$UserName = $jsonBody.username
+		$OdlConfigName = $jsonBody.odlconfigname
+		$UserEmail = $jsonBody.email
+    $SmartTicket = $jsonBody.smartTicket
+    $Customer = $jsonBody.customer
+	}
+	else {
+
+		$reqBodyArray = @($WebhookData.RequestBody.Split("&"))
+		foreach ($reqBodyItem in $reqBodyArray) {
+			if ($reqBodyItem.StartsWith("userop")) {
+				$UserOp = $reqBodyItem.Split("=")[1]
+			}
+			if ($reqBodyItem.StartsWith("useremail")) {
+				$tmpUserEmail = $reqBodyItem.Split("=")[1]
+				$UserEmail = $tmpUserEmail.Replace("%40", "@")
+			}
+			if ($reqBodyItem.StartsWith("odlconfigname")) {
+				$OdlConfigName = $reqBodyItem.Split("=")[1]
+			}
+			if ($reqBodyItem.StartsWith("smartticket")) {
+				$SmartTicket = $reqBodyItem.Split("=")[1]
+			}
+			if ($reqBodyItem.StartsWith("customer")) {
+				$Customer = $reqBodyItem.Split("=")[1]
+			}
+		}
+		$UserName = ""
+	}
+}
+
+if ($Customer.Length -eq 0) {
+	$Customer = "NA"
+}
+if ($SmartTicket.Length -eq 0) {
+	$SmartTicket = "NA"
+}
+
+Write-Output $UserOp, $UserEmail, $OdlConfigName, $UserName, $SmartTicket, $Customer
+$vaultName = "internal-training-vault"
 
 if ($env:AUTOMATION_ASSET_ACCOUNTID) {
 	Write-OutPut "Running in Azure Automation"
@@ -242,7 +291,7 @@ else {
 }
 
 $odlConfigUri = Get-AzKeyVaultSecret `
-	-VaultName $VaultName `
+	-VaultName $vaultName `
 	-Name "odl-config-uri-tenant-01" `
 	-AsPlainText -DefaultProfile $AzureContext
 
@@ -266,9 +315,8 @@ if ($UserOp.Equals("Create") -and ($UserEmail.EndsWith("fortinet.com") -or $User
 	$userNameIdNumber = Get-AvailableUserNameId $odlConfig.userNamePrefix $odlConfig.userIdNumberRange
 
 	# Create a user Login with the found available user ID Number and userNamePrefix
-
 	$tenantDomain = Get-AzKeyVaultSecret `
-		-VaultName $VaultName `
+		-VaultName $vaultName `
 		-Name $odlConfig.userTenantDomain `
 		-AsPlainText -DefaultProfile $AzureContext
 
@@ -296,6 +344,8 @@ if ($UserOp.Equals("Create") -and ($UserEmail.EndsWith("fortinet.com") -or $User
 
 		if ($user) {
 
+      Update-StorageTable "Internal_Training_Automation" "fortinetcloudinttraining" $odlConfig.fortiLabName $UserEmail $user.UserPrincipalName $Customer $SmartTicket
+
 			foreach ($userResourceGroup in $odlConfig.userResourceGroups) {
 				$resourceGroupname = "$($user.displayName)-$($userResourceGroup.suffix)"
 				$resourceGroupLocation = $userResourceGroup.location
@@ -311,7 +361,6 @@ if ($UserOp.Equals("Create") -and ($UserEmail.EndsWith("fortinet.com") -or $User
 						$newUserResourceGroupRoleAssignment = New-AzRoleAssignment -RoleDefinitionName "Contributor" -ObjectId $user.Id -Scope $resourceGroup.ResourceId -WarningAction SilentlyContinue
 						$newUserResourceGroupRoleAssignment = New-AzRoleAssignment -RoleDefinitionName "User Access Administrator" -ObjectId $user.Id -Scope $resourceGroup.ResourceId -WarningAction SilentlyContinue
 					}
-
 				}
 				else {
 
