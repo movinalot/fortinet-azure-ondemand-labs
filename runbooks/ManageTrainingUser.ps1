@@ -4,7 +4,7 @@
 
     .NOTES
         AUTHOR: jmcdonough@fortinet.com
-        LASTEDIT: Feb 07, 2024
+        LASTEDIT: Feb 14, 2024
 #>
 
 # Can be run via WebHook or from Cmd line.
@@ -128,20 +128,7 @@ function Get-OdlConfig {
 		Write-Error "Blob: $storageBlobUri"
 		exit
 	}
-
-	Write-Output $response
-	$odlConfiguration = ConvertFrom-Json -InputObject $response.content
-
-	$odlConfigHash = @{
-		fortiLabName       = $odlConfiguration.fortiLabName;
-		labDuration        = $odlConfiguration.labDuration;
-		userResourceGroups = $odlConfiguration.userResourceGroups;
-		userIdNumberRange  = ($odlConfiguration.userIdNumberRange.Split(":")[0])..($odlConfiguration.userIdNumberRange.Split(":")[1]);
-		userNamePrefix     = $odlConfiguration.userNamePrefix;
-		userTenantDomain   = $odlConfiguration.userTenantDomain
-	}
-
-	return $odlConfigHash
+	return $(ConvertFrom-Json -InputObject $response.content)
 }
 
 function Get-AvailableUserNameId {
@@ -151,7 +138,7 @@ function Get-AvailableUserNameId {
 		[Parameter(Mandatory)]
 		[array] $userIdNumberRange
 	)
-	# Get All User IDs with username prefix
+	# Get All User IDs with userNamePrefix
 	$userdIds = Get-AzADUser -StartsWith $userNamePrefix | Select-Object DisplayName
 
 	# Find first available username in username range
@@ -163,7 +150,6 @@ function Get-AvailableUserNameId {
 			break
 		}
 	}
-
 	return $availableUserId
 }
 
@@ -178,6 +164,7 @@ function New-ResourceGroupUserRoleAssignments {
 	)
 
 	$userResourceGroupRoleAssignment = Get-AzRoleAssignment -ResourceGroupName $inputResourceGroupName -ObjectId $inputUserId -WarningAction SilentlyContinue
+	return $userResourceGroupRoleAssignment
 }
 
 function Update-StorageTable{
@@ -195,7 +182,9 @@ function Update-StorageTable{
       [Parameter(Mandatory=$true)]
       [array] $inputCustomer,
       [Parameter(Mandatory=$true)]
-      [array] $inputSmartTicket
+      [array] $inputSmartTicket,
+      [Parameter(Mandatory=$true)]
+      [array] $inputLabEnvironment
   )
 
   $storageAccount = Get-AzStorageAccount -ResourceGroupName $inputResourceGroupName -Name $inputStorageAccountName
@@ -220,12 +209,24 @@ function Update-StorageTable{
   $nextInstance
 
   Add-AzTableRow -table $storageTable.CloudTable -partitionKey "workshops" -rowKey ($inputLabName+"-"+$nextInstance) `
-	  -property @{"username"="$inputUserEmail";"labUserId"="$inputLabUserId";"Customer"="$inputCustomer";"SmartTicket"="$inputSmartTicket"}
+	-property @{"username"="$inputUserEmail";"labUserId"="$inputLabUserId";"Customer"="$inputCustomer";"SmartTicket"="$inputSmartTicket";"Environment"="$inputLabEnvironment"}
 }
 
 ### Main ###
 
+# Load the AzTable module to work with storage account tables
 Import-Module AzTable
+
+# Running in Azure Automation or locally
+if ($env:AUTOMATION_ASSET_ACCOUNTID) {
+	Write-OutPut "Running in Azure Automation"
+	Clear-AzContext -Force
+	Connect-AzAccount -Identity
+}
+else {
+	Write-OutPut "Running outside of Azure Automation"
+	Connect-AzAccount -SubscriptionName "Internal-Training"
+}
 
 # If there is WebHook data then extract and use for script operations.
 if ($WebhookData) {
@@ -269,6 +270,9 @@ if ($WebhookData) {
 	}
 }
 
+if ($UserName.Length -eq 0) {
+	$UserName = "NA"
+}
 if ($Customer.Length -eq 0) {
 	$Customer = "NA"
 }
@@ -277,19 +281,8 @@ if ($SmartTicket.Length -eq 0) {
 }
 
 Write-Output $UserOp, $UserEmail, $OdlConfigName, $UserName, $SmartTicket, $Customer
+
 $vaultName = "internal-training-vault"
-
-if ($env:AUTOMATION_ASSET_ACCOUNTID) {
-	Write-OutPut "Running in Azure Automation"
-	Clear-AzContext -Force
-	Connect-AzAccount -Identity
-
-}
-else {
-	Write-OutPut "Running outside of Azure Automation"
-	Connect-AzAccount -SubscriptionName "Internal-Training"
-}
-
 $odlConfigUri = Get-AzKeyVaultSecret `
 	-VaultName $vaultName `
 	-Name "odl-config-uri-tenant-01" `
@@ -297,12 +290,28 @@ $odlConfigUri = Get-AzKeyVaultSecret `
 
 $odlConfig = Get-OdlConfig ($odlConfigUri + $OdlConfigName + ".json")
 
-Write-OutPut "User Resource Groups: $($odlConfig.userResourceGroups)"
-Write-OutPut "Number of allowed user accounts: $(($odlConfig.userIdNumberRange).Count)"
-Write-OutPut "Username prefix: $($odlConfig.userNamePrefix)"
-Write-OutPut "User Tenant Domain: $($odlConfig.userTenantDomain)"
-Write-OutPut "Lab Name: $($odlConfig.fortiLabName)"
-Write-OutPut "Lab Duration: $($odlConfig.labDuration)"
+# What type of lab environment is being used
+if ($odlConfig.fortiLabEnv -eq "Azure") {
+
+  # Get the range of available user ID numbers
+	$userIdNumberRange  = $($odlConfig.userIdNumberRange.Split(":")[0])..($odlConfig.userIdNumberRange.Split(":")[1])
+
+	Write-OutPut "Lab Environment: $($odlConfig.fortiLabEnv)"
+	Write-OutPut "Lab Name: $($odlConfig.fortiLabName)"
+	Write-OutPut "Lab Duration: $($odlConfig.labDuration)"
+	Write-OutPut "Number of allowed user accounts: $(($userIdNumberRange).Count)"
+	Write-OutPut "Username prefix: $($odlConfig.userNamePrefix)"
+	Write-OutPut "User Tenant Domain: $($odlConfig.userTenantDomain)"
+	Write-OutPut "User Resource Groups: $($odlConfig.userResourceGroups)"
+} else {
+
+	Write-OutPut "Lab Environment: $($odlConfig.fortiLabEnv)"
+	Write-OutPut "Lab Name: $($odlConfig.fortiLabName)"
+
+	Update-StorageTable "Internal_Training_Automation" "fortinetcloudinttraining" $odlConfig.fortiLabName $UserEmail "NA" $Customer $SmartTicket $odlConfig.fortiLabEnv
+	exit
+}
+
 
 $userResourceGroupTags = @{FortiLab = "$OdlConfigName"; Duration = "$($odlConfig.labDuration)" }
 if ($UserEmail) {
@@ -312,7 +321,7 @@ if ($UserEmail) {
 if ($UserOp.Equals("Create") -and ($UserEmail.EndsWith("fortinet.com") -or $UserEmail.EndsWith("fortinet-us.com"))) {
 
 	# Get available UserID #, combining an available ID number in the userIdNumberRange with userNamePrefix
-	$userNameIdNumber = Get-AvailableUserNameId $odlConfig.userNamePrefix $odlConfig.userIdNumberRange
+	$userNameIdNumber = Get-AvailableUserNameId $odlConfig.userNamePrefix $userIdNumberRange
 
 	# Create a user Login with the found available user ID Number and userNamePrefix
 	$tenantDomain = Get-AzKeyVaultSecret `
@@ -344,7 +353,7 @@ if ($UserOp.Equals("Create") -and ($UserEmail.EndsWith("fortinet.com") -or $User
 
 		if ($user) {
 
-      Update-StorageTable "Internal_Training_Automation" "fortinetcloudinttraining" $odlConfig.fortiLabName $UserEmail $user.UserPrincipalName $Customer $SmartTicket
+      Update-StorageTable "Internal_Training_Automation" "fortinetcloudinttraining" $odlConfig.fortiLabName $UserEmail $user.UserPrincipalName $Customer $SmartTicket $odlConfig.fortiLabEnv
 
 			foreach ($userResourceGroup in $odlConfig.userResourceGroups) {
 				$resourceGroupname = "$($user.displayName)-$($userResourceGroup.suffix)"

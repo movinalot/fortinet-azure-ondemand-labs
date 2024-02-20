@@ -1,9 +1,10 @@
 {
-  "fortiLabName"      : "FORTILAB",
-  "userIdNumberRange" : "21:50",
-  "userNamePrefix"    : "fortilab",
-  "userTenantDomain"  : "tenant-01",
-  "labDuration"       : "6",
+  "fortiLabEnv": "Azure",
+  "fortiLabName": "FORTILAB",
+  "userIdNumberRange": "21:50",
+  "userNamePrefix": "fortilab",
+  "userTenantDomain": "tenant-01",
+  "labDuration": "6",
   "userResourceGroups": [
     {
       "suffix": "workshop-fortilab",

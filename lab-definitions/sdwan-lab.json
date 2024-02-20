@@ -1,4 +1,5 @@
 {
+  "fortiLabEnv": "Azure",
   "fortiLabName": "SDWAN",
   "labDuration": "4",
   "userIdNumberRange": "10:40",
