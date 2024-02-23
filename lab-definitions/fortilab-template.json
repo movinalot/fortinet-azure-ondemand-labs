@@ -1,6 +1,7 @@
 {
   "fortiLabEnv": "Azure",
   "fortiLabName": "FORTILAB",
+  "fortiRestricted": "1",
   "userIdNumberRange": "21:50",
   "userNamePrefix": "fortilab",
   "userTenantDomain": "tenant-01",

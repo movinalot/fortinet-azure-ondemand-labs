@@ -1,17 +1,18 @@
 {
-  "fortiLabEnv": "Azure",
-  "fortiLabName": "FGTAUTO",
-  "labDuration": "4",
-  "userIdNumberRange": "10:40",
-  "userNamePrefix": "fct",
-  "userTenantDomain": "tenant-01",
-  "userResourceGroups": [
-    {
-      "suffix": "fgt-as-workshop",
-      "location": "eastus",
-      "storage": true,
-      "sharename": "cloudshellshare",
-      "bastion": false
-    }
-  ]
+	"fortiLabEnv": "Azure",
+	"fortiLabName": "FGTAUTO",
+	"fortiRestricted": "1",
+	"labDuration": "4",
+	"userIdNumberRange": "10:40",
+	"userNamePrefix": "fct",
+	"userTenantDomain": "tenant-01",
+	"userResourceGroups": [
+		{
+			"suffix": "fgt-as-workshop",
+			"location": "eastus",
+			"storage": true,
+			"sharename": "cloudshellshare",
+			"bastion": false
+		}
+	]
 }

@@ -4,7 +4,7 @@
 
     .NOTES
         AUTHOR: jmcdonough@fortinet.com
-        LASTEDIT: Feb 14, 2024
+        LASTEDIT: Feb 23, 2024
 #>
 
 # Can be run via WebHook or from Cmd line.
@@ -74,7 +74,7 @@ function Get-RandomPassword {
 	return $password
 }
 
-# Send and Email with user credentails to access the lab
+# Send an Email with user credentails to access the lab
 function Send-Email {
 	param (
 		[Parameter(Mandatory)]
@@ -113,7 +113,7 @@ function Send-Email {
 		-Subject $emailSubject -Body $emailBody -Credential $credential -WarningAction SilentlyContinue
 }
 
-# Retrieve the On Demand Lab configuration
+# Retrieve the On Demand Lab configuration (ODL)
 function Get-OdlConfig {
 	param (
 		[Parameter(Mandatory)]
@@ -293,11 +293,13 @@ $odlConfig = Get-OdlConfig ($odlConfigUri + $OdlConfigName + ".json")
 # What type of lab environment is being used
 if ($odlConfig.fortiLabEnv -eq "Azure") {
 
+	# Azure Environment
   # Get the range of available user ID numbers
 	$userIdNumberRange  = $($odlConfig.userIdNumberRange.Split(":")[0])..($odlConfig.userIdNumberRange.Split(":")[1])
 
 	Write-OutPut "Lab Environment: $($odlConfig.fortiLabEnv)"
 	Write-OutPut "Lab Name: $($odlConfig.fortiLabName)"
+	Write-OutPut "Resrticted: $($odlConfig.fortiRestricted)"
 	Write-OutPut "Lab Duration: $($odlConfig.labDuration)"
 	Write-OutPut "Number of allowed user accounts: $(($userIdNumberRange).Count)"
 	Write-OutPut "Username prefix: $($odlConfig.userNamePrefix)"
@@ -305,21 +307,44 @@ if ($odlConfig.fortiLabEnv -eq "Azure") {
 	Write-OutPut "User Resource Groups: $($odlConfig.userResourceGroups)"
 } else {
 
+	# Non Azure Environment
 	Write-OutPut "Lab Environment: $($odlConfig.fortiLabEnv)"
 	Write-OutPut "Lab Name: $($odlConfig.fortiLabName)"
+	Write-OutPut "Resrticted: $($odlConfig.fortiRestricted)"
 
-	Update-StorageTable "Internal_Training_Automation" "fortinetcloudinttraining" $odlConfig.fortiLabName $UserEmail "NA" $Customer $SmartTicket $odlConfig.fortiLabEnv
+	Update-StorageTable "Internal_Training_Automation" `
+											"fortinetcloudinttraining" `
+											$odlConfig.fortiLabName `
+											$UserEmail `
+											"NA" `
+											$Customer `
+											$SmartTicket `
+											$odlConfig.fortiLabEnv
 	exit
 }
-
 
 $userResourceGroupTags = @{FortiLab = "$OdlConfigName"; Duration = "$($odlConfig.labDuration)" }
 if ($UserEmail) {
 	$userResourceGroupTags.add('Email', $UserEmail)
 }
 
-if ($UserOp.Equals("Create") -and ($UserEmail.EndsWith("fortinet.com") -or $UserEmail.EndsWith("fortinet-us.com"))) {
+if ($UserOp.Equals("Create")) {
 
+	if ($odlConfig.fortiRestricted.Length -gt 0) {
+		if ($UserEmail.Split("@")[1] -in $odlConfig.fortiRestricted) {
+			# Restricted lab
+			Write-OutPut "$UserEmail is in a valid requestor domain"
+		}
+		else {
+				# Requestor is not a member of a valid domain
+				Write-OutPut "$UserEmail is not in a valid requestor domain"
+				exit
+		}
+	}
+	else {
+		# No restricted lab
+		Write-OutPut "Lab is not resrticted"
+	}
 	# Get available UserID #, combining an available ID number in the userIdNumberRange with userNamePrefix
 	$userNameIdNumber = Get-AvailableUserNameId $odlConfig.userNamePrefix $userIdNumberRange
 
@@ -353,7 +378,14 @@ if ($UserOp.Equals("Create") -and ($UserEmail.EndsWith("fortinet.com") -or $User
 
 		if ($user) {
 
-      Update-StorageTable "Internal_Training_Automation" "fortinetcloudinttraining" $odlConfig.fortiLabName $UserEmail $user.UserPrincipalName $Customer $SmartTicket $odlConfig.fortiLabEnv
+      Update-StorageTable "Internal_Training_Automation" `
+													"fortinetcloudinttraining" `
+													$odlConfig.fortiLabName `
+													$UserEmail `
+													$user.UserPrincipalName `
+													$Customer `
+													$SmartTicket `
+													$odlConfig.fortiLabEnv
 
 			foreach ($userResourceGroup in $odlConfig.userResourceGroups) {
 				$resourceGroupname = "$($user.displayName)-$($userResourceGroup.suffix)"
@@ -441,12 +473,6 @@ if ($UserOp.Equals("Create") -and ($UserEmail.EndsWith("fortinet.com") -or $User
 	else {
 		# No available lab slots
 		Write-OutPut "No User IDs Available"
-	}
-}
-else {
-	if ($UserOp.Equals("Create")) {
-		# Requestor is not a mmber of a valid domain
-		Write-OutPut "$UserEmail is not a valid requestor domain"
 	}
 }
 

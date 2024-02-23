@@ -1,6 +1,7 @@
 {
   "fortiLabEnv": "Azure",
   "fortiLabName": "FWEBZTNA",
+  "fortiRestricted": "1",
   "labDuration": "4",
   "userIdNumberRange": "11:40",
   "userNamePrefix": "fweb",

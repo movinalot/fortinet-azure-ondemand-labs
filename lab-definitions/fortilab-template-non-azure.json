@@ -1,4 +1,5 @@
 {
   "fortiLabEnv": "Any-value-other-than-Azure",
-  "fortiLabName": "FortiLab-Name"
+  "fortiLabName": "FortiLab-Name",
+  "fortiRestricted": "Restrict to Fortinet email domains 1 = yes, 0 = no"
 }

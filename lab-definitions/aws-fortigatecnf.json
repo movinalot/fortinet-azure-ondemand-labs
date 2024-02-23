@@ -1,4 +1,5 @@
 {
   "fortiLabEnv": "AWS",
-  "fortiLabName": "AWSFGTCNF"
+  "fortiLabName": "AWSFGTCNF",
+  "fortiRestricted": "0"
 }
